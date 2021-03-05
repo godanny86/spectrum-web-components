@@ -51,6 +51,14 @@ type ContentDirectionManager = HTMLElement & {
     startManagingContentDirection?(): void;
 };
 
+let hasDirSelector = true;
+
+try {
+    document.body.querySelector(':dir(ltr)');
+} catch (error) {
+    hasDirSelector = false;
+}
+
 const canManageContentDirection = (el: ContentDirectionManager): boolean =>
     typeof el.startManagingContentDirection !== 'undefined' ||
     el.tagName === 'SP-THEME';
@@ -65,18 +73,30 @@ export function SpectrumMixin<T extends Constructor<UpdatingElement>>(
         /**
          * @private
          */
-        @property({ reflect: true })
-        public dir: 'ltr' | 'rtl' = 'ltr';
+        @property()
+        public get dir(): 'ltr' | 'rtl' {
+            return this._dir;
+        }
+
+        public set dir(value) {
+            if (value !== this.dir) {
+                this.setAttribute('dir', value);
+                this._dir = value;
+            }
+        }
+
+        private _dir: 'ltr' | 'rtl' = 'ltr';
 
         /**
          * @private
          */
         public get isLTR(): boolean {
-            return this.dir === 'ltr';
+            return this._dir === 'ltr';
         }
 
         public connectedCallback(): void {
-            if (!this.hasAttribute('dir')) {
+            console.log(hasDirSelector);
+            if (!hasDirSelector && !this.hasAttribute('dir')) {
                 let dirParent = ((this as HTMLElement).assignedSlot ||
                     this.parentNode) as HTMLElement;
                 while (
@@ -86,7 +106,7 @@ export function SpectrumMixin<T extends Constructor<UpdatingElement>>(
                     )
                 ) {
                     dirParent = ((dirParent as HTMLElement).assignedSlot || // step into the shadow DOM of the parent of a slotted node
-                    dirParent.parentNode || // DOM Element detected
+                        dirParent.parentNode || // DOM Element detected
                         ((dirParent as unknown) as ShadowRoot)
                             .host) as HTMLElement;
                 }
@@ -106,7 +126,7 @@ export function SpectrumMixin<T extends Constructor<UpdatingElement>>(
 
         public disconnectedCallback(): void {
             super.disconnectedCallback();
-            if (this._dirParent) {
+            if (!hasDirSelector && this._dirParent) {
                 if (this._dirParent === document.documentElement) {
                     observedForElements.delete(this);
                 } else {
